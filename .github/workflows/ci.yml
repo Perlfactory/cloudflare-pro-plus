@@ -73,7 +73,7 @@ jobs:
           sh packaging/build.sh
           version="$(php -r '$xml = simplexml_load_file("meta.xml"); echo trim((string) $xml->version);')"
           zip -T "cloudflare-pro-${version}.zip"
-          cp "cloudflare-pro-${version}.zip" cloudflare-pro.zip
+          cp "cloudflare-pro-${version}.zip" cloudflare-pro-plus.zip
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -81,4 +81,4 @@ jobs:
           name: cloudflare-pro-package
           path: |
             cloudflare-pro-*.zip
-            cloudflare-pro.zip
+            cloudflare-pro-plus.zip

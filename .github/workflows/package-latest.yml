@@ -71,7 +71,7 @@ jobs:
           version="${{ steps.version.outputs.version }}"
           sh packaging/build.sh
           zip -T "cloudflare-pro-${version}.zip"
-          cp "cloudflare-pro-${version}.zip" cloudflare-pro.zip
+          cp "cloudflare-pro-${version}.zip" cloudflare-pro-plus.zip
 
       - name: Prepare latest release notes
         run: |
@@ -84,7 +84,7 @@ jobs:
           Install with:
 
           \`\`\`sh
-          plesk bin extension --install-url https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/cloudflare-pro.zip
+          plesk bin extension --install-url https://github.com/${GITHUB_REPOSITORY}/releases/download/latest/cloudflare-pro-plus.zip
           \`\`\`
           EOF
 
@@ -102,10 +102,10 @@ jobs:
           version="${{ steps.version.outputs.version }}"
           title="Cloudflare Pro latest (v${version})"
           if gh release view latest >/dev/null 2>&1; then
-            gh release upload latest cloudflare-pro.zip --clobber
+            gh release upload latest cloudflare-pro-plus.zip --clobber
             gh release edit latest --title "$title" --notes-file latest-release-notes.md --prerelease
           else
-            gh release create latest cloudflare-pro.zip \
+            gh release create latest cloudflare-pro-plus.zip \
               --title "$title" \
               --notes-file latest-release-notes.md \
               --prerelease

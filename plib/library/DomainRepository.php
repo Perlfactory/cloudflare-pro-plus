@@ -338,6 +338,9 @@ class Modules_CloudflarePro_DomainRepository
             $row['status'] = 'synced';
         }
 
+        $row['is_alias'] = 0 === strpos((string) $row['domain_id'], 'alias:');
+        $row['domain_type'] = $row['is_alias'] ? 'alias' : 'domain';
+
         return $row;
     }
 

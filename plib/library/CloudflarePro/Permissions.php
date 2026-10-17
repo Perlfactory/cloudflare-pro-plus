@@ -16,6 +16,10 @@ class CloudflarePro_Permissions
         }
 
         foreach (self::accessibleDomains() as $domain) {
+            if (is_a($domain, 'pm_DomainAlias')) {
+                continue;
+            }
+
             if (!$domain->hasHosting()) {
                 continue;
             }
@@ -65,7 +69,7 @@ class CloudflarePro_Permissions
     {
         $client = self::currentClient();
         if ($client->isAdmin()) {
-            return pm_Domain::getAllDomains(false);
+            return self::appendAliases(pm_Domain::getAllDomains(false));
         }
 
         $domains = array();
@@ -105,7 +109,48 @@ class CloudflarePro_Permissions
         } catch (Exception $e) {
         }
 
-        return $domains;
+        return self::appendAliases($domains);
+    }
+
+    private static function appendAliases(array $domains)
+    {
+        if (!class_exists('pm_DomainAlias') || !method_exists('pm_DomainAlias', 'getByDomain')) {
+            return $domains;
+        }
+
+        $result = $domains;
+        $primaryDomains = [];
+        foreach ($domains as $domain) {
+            if (is_a($domain, 'pm_DomainAlias')) {
+                continue;
+            }
+
+            $primaryDomains[(string) $domain->getId()] = $domain;
+        }
+
+        foreach ($primaryDomains as $domain) {
+            try {
+                $aliases = pm_DomainAlias::getByDomain($domain);
+            } catch (Throwable $e) {
+                continue;
+            }
+
+            if ($aliases instanceof Traversable) {
+                $aliases = iterator_to_array($aliases);
+            } elseif (!is_array($aliases)) {
+                $aliases = $aliases ? [$aliases] : [];
+            }
+
+            foreach ($aliases as $alias) {
+                if (!$alias || !method_exists($alias, 'getId') || !method_exists($alias, 'getName')) {
+                    continue;
+                }
+
+                $result['alias:' . (string) $alias->getId()] = $alias;
+            }
+        }
+
+        return $result;
     }
 
     private static function hasDomainAccess($client, $domain)

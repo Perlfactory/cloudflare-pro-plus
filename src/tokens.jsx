@@ -495,7 +495,16 @@ function DomainApp({ syncAction, startSyncJobAction, processSyncJobAction, syncJ
       type: 'title',
       width: '26%',
       truncate: true,
-      render: row => <Link component="span">{row.domain_name}</Link>,
+      render: row => (
+        <span className="gc-domain-cell">
+          <Link component="span">{row.domain_name}</Link>
+          {row.is_alias && (
+            <Status intent="info" compact>
+              {'Alias'}
+            </Status>
+          )}
+        </span>
+      ),
     },
     {
       key: 'token_name',
@@ -1886,7 +1895,7 @@ function SettingsApp({ saveAction, initialSettings }) {
 
 function AboutApp({ info, logo }) {
   const target = document.getElementById('gc-about-panel');
-  const version = info.version || '1.0.5';
+  const version = info.version || '1.1.0';
   const highlights = [
     {
       icon: 'cloud',

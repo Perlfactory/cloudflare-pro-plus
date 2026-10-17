@@ -24,7 +24,15 @@ class Modules_CloudflarePro_EventListener implements EventListener
                 return;
             }
 
-            $domainName = $this->value($newValues, $oldValues, [
+            $domainAliasName = $this->value($newValues, $oldValues, [
+                'domain_alias_name',
+                'Domain alias name',
+                'Domain Alias Name',
+                'domain_alias',
+                'Domain alias',
+                'Domain Alias',
+            ]);
+            $domainName = $domainAliasName ?: $this->value($newValues, $oldValues, [
                 'domain_name',
                 'Domain name',
                 'Domain Name',

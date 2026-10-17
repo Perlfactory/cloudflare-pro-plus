@@ -77,7 +77,7 @@ class CloudflarePro_PleskDnsService
     private function domainById($domainId)
     {
         foreach (CloudflarePro_Permissions::accessibleDomains() as $domain) {
-            if ((string) $domain->getId() === (string) $domainId) {
+            if ($this->domainIdentifier($domain) === (string) $domainId) {
                 return $domain;
             }
         }
@@ -88,7 +88,7 @@ class CloudflarePro_PleskDnsService
     private function domainByName($domainName)
     {
         $domainName = strtolower(rtrim((string) $domainName, '.'));
-        foreach (pm_Domain::getAllDomains(false) as $domain) {
+        foreach (CloudflarePro_Permissions::accessibleDomains() as $domain) {
             if (strtolower(rtrim($domain->getName(), '.')) === $domainName) {
                 return $domain;
             }
@@ -97,7 +97,7 @@ class CloudflarePro_PleskDnsService
         throw new pm_Exception('Domain not found: ' . $domainName);
     }
 
-    private function recordsForDomain(pm_Domain $domain)
+    private function recordsForDomain($domain)
     {
         $zone = $domain->getDnsZone();
         $zoneName = strtolower(rtrim($domain->getName(), '.'));
@@ -111,6 +111,13 @@ class CloudflarePro_PleskDnsService
         }
 
         return $records;
+    }
+
+    private function domainIdentifier($domain)
+    {
+        $id = (string) $domain->getId();
+
+        return is_a($domain, 'pm_DomainAlias') ? 'alias:' . $id : $id;
     }
 
     private function loadRecords(pm_Dns_Zone $zone)

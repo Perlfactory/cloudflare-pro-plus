@@ -20,7 +20,7 @@
 
 ## Overview
 
-Cloudflare Pro is a Plesk extension for connecting Plesk DNS zones to Cloudflare zones and keeping records aligned. It stores Cloudflare API tokens per logged-in Plesk user, discovers matching Cloudflare zones, compares local Plesk records with Cloudflare records, and provides import, export, sync, delete, proxy, and API log tools from the Plesk UI.
+Cloudflare Pro is a Plesk extension for connecting Plesk DNS zones to Cloudflare zones and keeping records aligned. It stores Cloudflare API tokens per logged-in Plesk user, discovers matching Cloudflare zones, compares local Plesk records with Cloudflare records, and provides import, export, sync, delete, proxy, and API log tools from the Plesk UI. Primary domains and Plesk domain aliases are handled as separate DNS zones when they have matching Cloudflare zones.
 
 The extension is built for the Plesk extension pattern: PHP/Zend controllers in `plib`, static assets in `htdocs`, extension metadata in `meta.xml`, and React UI compiled into `htdocs/public/assets`.
 
@@ -45,6 +45,8 @@ Developer and operator documentation lives in [`docs`](docs):
 - Plesk UI Library based interface with Domains, Tokens, API Logs, Settings, and About tabs.
 - Per-user Cloudflare API token storage with token name, status, validation, update, and delete actions.
 - Cloudflare zone discovery that only shows zones matching accessible Plesk domains.
+- Plesk domain-alias discovery through `pm_DomainAlias`, with each alias linked and synchronized independently from its primary domain.
+- Alias domains are marked with an **Alias** badge in the Domains list and use collision-safe identifiers such as `alias:<id>` in extension storage.
 - Domain record viewer with search, pagination, type sorting, proxy toggles, and record status.
 - Import all records from Cloudflare to Plesk.
 - Export all local Plesk records to Cloudflare.
@@ -64,6 +66,14 @@ Developer and operator documentation lives in [`docs`](docs):
 - **Import:** Pulls all Cloudflare DNS records into Plesk.
 - **Sync:** Runs a Cloudflare sync job using the current local Plesk DNS source.
 - **Auto Sync:** Enables automatic event-based pushing for that linked domain.
+
+#### Domain aliases
+
+Plesk stores domain aliases separately from primary domains. Cloudflare Pro discovers aliases with `pm_DomainAlias::getByDomain()` and includes them in the accessible-domain map. If an alias has a matching Cloudflare zone, it is stored as its own domain link and synchronized against the alias DNS zone rather than the primary domain's zone.
+
+Alias links use an identifier in the form `alias:<alias-id>`. This prevents a numeric alias ID from colliding with a primary Plesk domain ID and allows record import, export, full sync, and automatic event synchronization to resolve the correct alias object. Alias events prefer the `Domain Alias Name` event value over the parent `Domain Name` value.
+
+The alias DNS service must be enabled in Plesk before synchronization testing. The extension continues to omit unsupported DNS record types such as `NS` from synchronization; this behavior is independent of alias handling.
 
 ### Domain Record Page
 
@@ -125,15 +135,15 @@ Recommended Cloudflare token permissions:
 Install the latest runner-built package directly from GitHub:
 
 ```sh
-plesk bin extension --install-url https://github.com/ghostcompiler/cloudflare-pro/releases/download/latest/cloudflare-pro.zip
+plesk bin extension --install-url https://github.com/Perlfactory/cloudflare-pro-plus/releases/download/latest/cloudflare-pro-plus.zip
 ```
 
-This URL points to the rolling `latest` pre-release asset. The **Package Latest** workflow rebuilds `cloudflare-pro.zip` from the current `main` branch on every push and whenever it is started manually.
+This URL points to the rolling `latest` pre-release asset. The **Package Latest** workflow rebuilds `cloudflare-pro-plus.zip` from the current `main` branch on every push and whenever it is started manually.
 
 Pinned version installs are available after publishing a versioned release:
 
 ```sh
-plesk bin extension --install-url https://github.com/ghostcompiler/cloudflare-pro/releases/download/v1.0.5/cloudflare-pro-1.0.5.zip
+plesk bin extension --install-url https://github.com/Perlfactory/cloudflare-pro-plus/releases/download/v1.1.0/cloudflare-pro-1.1.0.zip
 ```
 
 Build the extension ZIP locally:
@@ -145,7 +155,7 @@ sh packaging/build.sh
 Install the local archive through Plesk CLI:
 
 ```sh
-plesk bin extension --install cloudflare-pro-1.0.5.zip
+plesk bin extension --install cloudflare-pro-1.1.0.zip
 ```
 
 Or install through Plesk UI:
@@ -153,7 +163,7 @@ Or install through Plesk UI:
 1. Open **Plesk Admin**.
 2. Go to **Extensions**.
 3. Click **Upload Extension**.
-4. Upload `cloudflare-pro-1.0.5.zip`.
+4. Upload `cloudflare-pro-1.1.0.zip`.
 5. Open **Cloudflare Pro** from the Plesk sidebar.
 
 ## Testing
@@ -168,13 +178,13 @@ xmllint --noout meta.xml
 node -e "JSON.parse(require('fs').readFileSync('packaging/manifest.json', 'utf8'))"
 sh -n packaging/build.sh
 sh packaging/build.sh
-zip -T cloudflare-pro-1.0.5.zip
+zip -T cloudflare-pro-1.1.0.zip
 ```
 
 GitHub Actions runners are included:
 
 - **CI** runs on every branch push, pull request, and manual dispatch. It validates PHP, frontend build, docs, metadata, packaging script, ZIP build, and uploads package artifacts.
-- **Package Latest** runs on `main` and manual dispatch. It builds and publishes `cloudflare-pro.zip` to the rolling `latest` GitHub pre-release.
+- **Package Latest** runs on `main` and manual dispatch. It builds `cloudflare-pro-<version>.zip` and publishes it as `cloudflare-pro-plus.zip` to the rolling `latest` GitHub pre-release.
 - **Release** runs on `v<version>` tags and manual dispatch. It verifies the tag matches `meta.xml`, builds `cloudflare-pro-<version>.zip`, and publishes the versioned release.
 - **Pages** runs when docs change on `main` and manual dispatch. It validates the `docs/` folder and deploys it to GitHub Pages.
 
@@ -185,8 +195,9 @@ GitHub Actions runners are included:
 3. Add a Cloudflare API token in the Tokens tab.
 4. Validate the token.
 5. Open the Domains tab and confirm matching Cloudflare zones are linked.
-6. Enable Auto Sync for domains that should push Plesk DNS changes automatically.
-7. Use View to inspect record status and run Import, Export, or Sync All as needed.
+6. For an alias, enable its DNS service in Plesk and confirm that the alias has its own matching Cloudflare zone.
+7. Enable Auto Sync for domains and aliases that should push Plesk DNS changes automatically.
+8. Use View to inspect record status and run Import, Export, or Sync All as needed.
 
 ## Troubleshooting Logs
 

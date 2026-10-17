@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+- Discover and synchronize Plesk domain aliases as independent Cloudflare DNS zones.
+- Preserve collision-safe alias identifiers and prioritize alias names for autosync events.
+- Mark alias domains with an Alias badge in the Domains list.
+
 ## 1.0.5
 
 - Add optional Cloudflare-only www companion records for subdomain autosync.

@@ -594,7 +594,7 @@ class IndexController extends pm_Controller_Action
         $meta = [
             'id' => 'cloudflare-pro',
             'name' => 'Cloudflare Pro',
-            'version' => '1.0.5',
+            'version' => '1.1.0',
             'category' => 'DNS',
             'vendorUrl' => 'https://ghostcompiler.com',
             'pleskMinVersion' => '18.0.0',

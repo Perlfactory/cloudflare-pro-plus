@@ -112,7 +112,7 @@ class CloudflarePro_DomainSyncService
         $tokens = $this->tokens->activeWithSecrets();
 
         $this->domains->keepOnlyDomainIds(array_map(function ($domain) {
-            return (string) $domain->getId();
+            return $this->domainIdentifier($domain);
         }, $pleskDomains));
         $this->domains->keepOnlyTokenIds(array_map(function ($token) {
             return $token['id'];
@@ -129,7 +129,7 @@ class CloudflarePro_DomainSyncService
 
                         $domain = $pleskDomains[$zoneName];
                         $this->domains->upsert([
-                            'domain_id' => (string) $domain->getId(),
+                            'domain_id' => $this->domainIdentifier($domain),
                             'domain_name' => $zoneName,
                             'token_id' => (int) $token['id'],
                             'token_name' => $token['name'],
@@ -654,6 +654,13 @@ class CloudflarePro_DomainSyncService
         }
 
         return $domains;
+    }
+
+    private function domainIdentifier($domain)
+    {
+        $id = (string) $domain->getId();
+
+        return is_a($domain, 'pm_DomainAlias') ? 'alias:' . $id : $id;
     }
 
     private function recordsFromSource(array $link, $sourceDomainName = null)

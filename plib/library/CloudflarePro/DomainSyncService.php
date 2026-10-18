@@ -460,6 +460,11 @@ class CloudflarePro_DomainSyncService
             return strcmp($left['name'], $right['name']);
         });
 
+        foreach ($rows as &$row) {
+            $row['plesk_url'] = $this->pleskUrlForRecord($link, $row['name']);
+        }
+        unset($row);
+
         return [
             'domain' => $link,
             'records' => $rows,
@@ -847,6 +852,53 @@ class CloudflarePro_DomainSyncService
         }
 
         return true;
+    }
+
+    private function pleskUrlForRecord(array $link, $recordName)
+    {
+        if (!class_exists('pm_Domain')) {
+            return '';
+        }
+
+        try {
+            $linkDomainId = (string) (isset($link['domain_id']) ? $link['domain_id'] : '');
+            $isAlias = 0 === strpos($linkDomainId, 'alias:');
+            $mainDomain = null;
+            $targetId = null;
+            $targetPath = 'type/domain';
+
+            if ($isAlias && class_exists('pm_DomainAlias') && method_exists('pm_DomainAlias', 'getByDomainAliasId')) {
+                $aliasId = (int) substr($linkDomainId, strlen('alias:'));
+                $alias = pm_DomainAlias::getByDomainAliasId($aliasId);
+                $mainDomain = $alias->getDomain();
+                $targetId = $alias->getId();
+                $targetPath = 'alias';
+            } else {
+                $mainDomain = pm_Domain::getByDomainId((int) $linkDomainId);
+                $targetDomainName = strtolower(rtrim((string) $recordName, '.'));
+                if ('' === $targetDomainName || '@' === $targetDomainName) {
+                    $targetDomainName = strtolower(rtrim((string) $link['domain_name'], '.'));
+                }
+
+                try {
+                    $targetDomain = pm_Domain::getByName($targetDomainName);
+                    $targetId = $targetDomain->getId();
+                } catch (Throwable $ignored) {
+                    $targetId = $mainDomain->getId();
+                }
+            }
+
+            $mainId = $mainDomain && method_exists($mainDomain, 'getId') ? (int) $mainDomain->getId() : 0;
+            $targetId = (int) $targetId;
+            if ($mainId <= 0 || $targetId <= 0) {
+                return '';
+            }
+
+            return '/admin/subscription/login/id/' . $mainId .
+                '?pageUrl=/smb/web/overview/id/' . $targetId . '/' . $targetPath;
+        } catch (Throwable $e) {
+            return '';
+        }
     }
 
     private function recordRow($local, $cloudflare, $status)

@@ -645,7 +645,19 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
   const [busy, setBusy] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   const [page, setPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const itemsPerPageStorageKey = 'cloudflare-pro.records.items-per-page';
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem(itemsPerPageStorageKey);
+      if (stored === 'all') {
+        return 'all';
+      }
+      const value = Number(stored);
+      return [10, 25, 50, 100].includes(value) ? value : 10;
+    } catch (error) {
+      return 10;
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selection, setSelection] = useState([]);
   const syncToasterRef = useRef(null);
@@ -899,7 +911,9 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
       type: 'title',
       width: '22%',
       truncate: true,
-      render: row => <Link component="span">{row.name}</Link>,
+      render: row => row.plesk_url
+        ? <Link href={row.plesk_url}>{row.name}</Link>
+        : <span>{row.name}</span>,
     },
     {
       key: 'status',
@@ -982,6 +996,11 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
 
   const list = target ? createPortal(
     <>
+      <div className="paging r-paging-visible gc-record-paging">
+        <div className="paging-area">
+          <span className="paging-info">{`${records.length} items total`}</span>
+        </div>
+      </div>
       <List
         columns={columns}
         data={data}
@@ -1000,6 +1019,11 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
             onItemsPerPageChange={value => {
               setItemsPerPage(value);
               setPage(1);
+              try {
+                window.localStorage.setItem(itemsPerPageStorageKey, String(value));
+              } catch (error) {
+                // Ignore unavailable browser storage and keep the in-page setting.
+              }
             }}
           />
         ) : undefined}

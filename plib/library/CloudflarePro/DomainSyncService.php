@@ -45,7 +45,12 @@ class CloudflarePro_DomainSyncService
                 $lastError = null;
                 for ($attempt = 1; $attempt <= max(1, (int) $attempts); $attempt++) {
                     try {
-                        $result = $service->syncLinkIncremental($link['id'], $sourceDomainName, $hostName);
+                        $result = $service->syncLinkIncremental(
+                            $link['id'],
+                            $sourceDomainName,
+                            $hostName,
+                            1 === $attempt
+                        );
                         if (empty($result['empty_source'])) {
                             $results[] = $result;
                             break;
@@ -144,12 +149,37 @@ class CloudflarePro_DomainSyncService
             }
         });
 
-        return $this->domains->all();
+        $domainObjects = array_values($pleskDomains);
+        $urls = [];
+        foreach ($domainObjects as $domain) {
+            $urls[$this->domainIdentifier($domain)] = $this->pleskUrlForDomain($domain, $domainObjects);
+        }
+
+        $stored = $this->domains->all();
+        foreach ($stored as &$link) {
+            $link['plesk_url'] = isset($urls[$link['domain_id']]) ? $urls[$link['domain_id']] : '';
+        }
+        unset($link);
+
+        return $stored;
     }
 
     public function storedDomains()
     {
-        return $this->domains->all();
+        $stored = $this->domains->all();
+        $pleskDomains = $this->accessibleDomainMap();
+        $domainObjects = array_values($pleskDomains);
+        $urls = [];
+        foreach ($domainObjects as $domain) {
+            $urls[$this->domainIdentifier($domain)] = $this->pleskUrlForDomain($domain, $domainObjects);
+        }
+
+        foreach ($stored as &$link) {
+            $link['plesk_url'] = isset($urls[$link['domain_id']]) ? $urls[$link['domain_id']] : '';
+        }
+        unset($link);
+
+        return $stored;
     }
 
     public function syncLink($linkId)
@@ -315,7 +345,7 @@ class CloudflarePro_DomainSyncService
         ];
     }
 
-    public function syncLinkIncremental($linkId, $sourceDomainName = null, $targetHostName = null)
+    public function syncLinkIncremental($linkId, $sourceDomainName = null, $targetHostName = null, $validateToken = true)
     {
         $link = $this->domains->find($linkId);
         $token = $this->tokens->secret($link['token_id']);
@@ -327,10 +357,6 @@ class CloudflarePro_DomainSyncService
                 'updated' => 0,
                 'skipped' => true,
             ];
-        }
-
-        if (!empty($settings['validate_token_before_sync'])) {
-            $this->cloudflare->verifyToken($token);
         }
 
         try {
@@ -349,6 +375,10 @@ class CloudflarePro_DomainSyncService
                     'updated' => 0,
                     'empty_source' => true,
                 ];
+            }
+
+            if ($validateToken && !empty($settings['validate_token_before_sync'])) {
+                $this->cloudflare->verifyToken($token);
             }
 
             $existing = [];
@@ -756,6 +786,9 @@ class CloudflarePro_DomainSyncService
             $payload['data'] = $record['data'];
         } else {
             $payload['content'] = isset($record['content']) ? $record['content'] : '';
+            if ('TXT' === $type) {
+                $payload['content'] = $this->quoteTxtContent($payload['content']);
+            }
         }
 
         if ('MX' === $type && isset($record['priority'])) {
@@ -803,6 +836,9 @@ class CloudflarePro_DomainSyncService
 
         if (!in_array($type, ['SRV', 'TLSA'], true) && isset($record['content'])) {
             $normalized['content'] = $this->normalizeContent($type, $record['content']);
+            if ('TXT' === $type) {
+                $normalized['txt_content_quoted'] = $this->isQuotedTxtContent(trim((string) $record['content']));
+            }
         }
         if (!in_array($type, ['SRV', 'TLSA'], true) && isset($record['priority'])) {
             $normalized['priority'] = (int) $record['priority'];
@@ -825,6 +861,10 @@ class CloudflarePro_DomainSyncService
             }
         }
 
+        if ('TXT' === strtoupper(isset($local['type']) ? $local['type'] : '') && empty($cloudflare['txt_content_quoted'])) {
+            return false;
+        }
+
         if (isset($local['data']) || isset($cloudflare['data'])) {
             if (json_encode(isset($local['data']) ? $local['data'] : null) !== json_encode(isset($cloudflare['data']) ? $cloudflare['data'] : null)) {
                 return false;
@@ -832,6 +872,56 @@ class CloudflarePro_DomainSyncService
         }
 
         return true;
+    }
+
+    private function pleskUrlForDomain($domain, array $domains)
+    {
+        if (!class_exists('pm_Domain') || !is_object($domain)) {
+            return '';
+        }
+
+        try {
+            $targetId = method_exists($domain, 'getId') ? (int) $domain->getId() : 0;
+            $targetName = method_exists($domain, 'getName')
+                ? strtolower(rtrim((string) $domain->getName(), '.'))
+                : '';
+            $mainDomain = $domain;
+            $targetPath = 'type/domain';
+
+            if (is_a($domain, 'pm_DomainAlias') && method_exists($domain, 'getDomain')) {
+                $mainDomain = $domain->getDomain();
+                $targetPath = 'type/alias';
+            } elseif ('' !== $targetName) {
+                $mainName = '';
+                foreach ($domains as $candidate) {
+                    if (!is_object($candidate) || is_a($candidate, 'pm_DomainAlias') ||
+                        !method_exists($candidate, 'getName')) {
+                        continue;
+                    }
+
+                    $candidateName = strtolower(rtrim((string) $candidate->getName(), '.'));
+                    if ($candidateName === $targetName ||
+                        substr($targetName, -strlen('.' . $candidateName)) !== '.' . $candidateName) {
+                        continue;
+                    }
+
+                    if (strlen($candidateName) > strlen($mainName)) {
+                        $mainName = $candidateName;
+                        $mainDomain = $candidate;
+                    }
+                }
+            }
+
+            $mainId = method_exists($mainDomain, 'getId') ? (int) $mainDomain->getId() : 0;
+            if ($mainId <= 0 || $targetId <= 0) {
+                return '';
+            }
+
+            return '/admin/subscription/login/id/' . $mainId .
+                '?pageUrl=/smb/web/overview/id/' . $targetId . '/' . $targetPath;
+        } catch (Throwable $e) {
+            return '';
+        }
     }
 
     private function recordRow($local, $cloudflare, $status)
@@ -895,8 +985,44 @@ class CloudflarePro_DomainSyncService
         if (in_array($type, ['CNAME', 'MX', 'PTR', 'SRV'], true)) {
             return strtolower(rtrim($content, '.'));
         }
+        if ('TXT' === $type) {
+            return $this->quoteTxtContent($content);
+        }
 
         return $content;
+    }
+
+    private function quoteTxtContent($content)
+    {
+        return $this->normalizeTxtContent($content);
+    }
+
+    private function isQuotedTxtContent($content)
+    {
+        return 1 === preg_match('/^"(?:\\\\.|[^"\\\\])*"(?:\s+"(?:\\\\.|[^"\\\\])*")*$/', $content);
+    }
+
+    private function normalizeTxtContent($content)
+    {
+        $content = trim((string) $content);
+        if ($this->isQuotedTxtContent($content)) {
+            preg_match_all('/"((?:\\\\.|[^"\\\\])*)"/', $content, $matches);
+            $segments = isset($matches[1]) && $matches[1] ? $matches[1] : [''];
+        } else {
+            $segments = [str_replace(['\\', '"'], ['\\\\', '\\"'], $content)];
+        }
+
+        $chunks = [];
+        foreach ($segments as $segment) {
+            do {
+                $chunks[] = substr($segment, 0, 255);
+                $segment = substr($segment, 255);
+            } while ('' !== $segment);
+        }
+
+        return implode(' ', array_map(function ($chunk) {
+            return '"' . $chunk . '"';
+        }, $chunks));
     }
 
     private function normalizeRecordData($type, array $data)

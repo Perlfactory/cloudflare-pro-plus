@@ -214,8 +214,22 @@ class CloudflarePro_PleskDnsService
         if (in_array($type, ['CNAME', 'MX', 'PTR', 'SRV'], true)) {
             return strtolower(rtrim($value, '.'));
         }
+        if ('TXT' === strtoupper((string) $type)) {
+            return $this->txtContentForPlesk($value);
+        }
 
         return $value;
+    }
+
+    private function txtContentForPlesk($value)
+    {
+        if ('' === $value || 1 !== preg_match('/^"(?:\\\\.|[^"\\\\])*"(?:\s+"(?:\\\\.|[^"\\\\])*")*$/', $value)) {
+            return $value;
+        }
+
+        preg_match_all('/"((?:\\\\.|[^"\\\\])*)"/', $value, $matches);
+
+        return implode('', isset($matches[1]) ? $matches[1] : []);
     }
 
     private function ttl($ttl)

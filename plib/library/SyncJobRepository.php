@@ -120,6 +120,17 @@ class Modules_CloudflarePro_SyncJobRepository
         return (int) $stmt->fetchColumn() > 0;
     }
 
+    public function hasRunningImport()
+    {
+        $stmt = $this->db->query(
+            'SELECT COUNT(*)
+             FROM sync_jobs
+             WHERE mode = "import" AND status IN ("queued", "running")'
+        );
+
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
     public function markProgress($id, $processed, $created, $updated, $failed, $status, $error = null)
     {
         $stmt = $this->db->prepare(

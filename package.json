@@ -1,11 +1,12 @@
 {
   "name": "cloudflare-pro",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test": "npm run test:build && npm run test:docs",
+    "test": "npm run test:php && npm run test:build && npm run test:docs",
+    "test:php": "php scripts/test-txt-records.php && php scripts/test-token-verification.php && php scripts/test-plesk-record-links.php",
     "test:build": "npm run build",
     "test:docs": "node scripts/validate-docs.cjs",
     "package": "sh packaging/build.sh"

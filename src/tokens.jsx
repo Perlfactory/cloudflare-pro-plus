@@ -497,7 +497,11 @@ function DomainApp({ syncAction, startSyncJobAction, processSyncJobAction, syncJ
       truncate: true,
       render: row => (
         <span className="gc-domain-cell">
-          <Link component="span">{row.domain_name}</Link>
+          {row.plesk_url ? (
+            <Link href={row.plesk_url}>{row.domain_name}</Link>
+          ) : (
+            <Link component="span">{row.domain_name}</Link>
+          )}
           {row.is_alias && (
             <Status intent="info" compact>
               {'Alias'}
@@ -645,7 +649,19 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
   const [busy, setBusy] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   const [page, setPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const itemsPerPageStorageKey = 'cloudflare-pro.records.items-per-page';
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem(itemsPerPageStorageKey);
+      if (stored === 'all') {
+        return 'all';
+      }
+      const value = Number(stored);
+      return [10, 25, 50, 100].includes(value) ? value : 10;
+    } catch (error) {
+      return 10;
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selection, setSelection] = useState([]);
   const syncToasterRef = useRef(null);
@@ -899,7 +915,7 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
       type: 'title',
       width: '22%',
       truncate: true,
-      render: row => <Link component="span">{row.name}</Link>,
+      render: row => <span>{row.name}</span>,
     },
     {
       key: 'status',
@@ -986,7 +1002,7 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
         columns={columns}
         data={data}
         rowKey="key"
-        totalRows={sortedRecords.length}
+        totalRows={records.length}
         className="gc-record-list"
         selection={selection}
         onSelectionChange={setSelection}
@@ -1000,6 +1016,11 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
             onItemsPerPageChange={value => {
               setItemsPerPage(value);
               setPage(1);
+              try {
+                window.localStorage.setItem(itemsPerPageStorageKey, String(value));
+              } catch (error) {
+                // Ignore unavailable browser storage and keep the in-page setting.
+              }
             }}
           />
         ) : undefined}
@@ -1895,7 +1916,7 @@ function SettingsApp({ saveAction, initialSettings }) {
 
 function AboutApp({ info, logo }) {
   const target = document.getElementById('gc-about-panel');
-  const version = info.version || '1.1.0';
+  const version = info.version || '1.1.1';
   const highlights = [
     {
       icon: 'cloud',

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1
+
+- Quote TXT record contents before sending them to the Cloudflare DNS API.
+- Preserve already quoted and multi-string TXT values without double quoting.
+- Remove Cloudflare TXT character-string quotes when importing records into Plesk.
+- Suppress autosync events while an import job is writing records to Plesk.
+- Do not validate tokens for empty autosync sources or repeat validation on autosync retries.
+- Remember the records-page Items per page selection and show the total record count.
+- Link domains in the Domains list to their Plesk domain, subdomain, or alias page.
+
 ## 1.1.0
 
 - Discover and synchronize Plesk domain aliases as independent Cloudflare DNS zones.

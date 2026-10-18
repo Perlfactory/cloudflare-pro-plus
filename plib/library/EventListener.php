@@ -3,6 +3,7 @@
 require_once pm_Context::getPlibDir() . 'library/TokenRepository.php';
 require_once pm_Context::getPlibDir() . 'library/SettingsRepository.php';
 require_once pm_Context::getPlibDir() . 'library/DomainRepository.php';
+require_once pm_Context::getPlibDir() . 'library/SyncJobRepository.php';
 require_once pm_Context::getPlibDir() . 'library/CloudflarePro/CloudflareClient.php';
 require_once pm_Context::getPlibDir() . 'library/CloudflarePro/PleskDnsService.php';
 require_once pm_Context::getPlibDir() . 'library/CloudflarePro/DomainSyncService.php';
@@ -21,6 +22,11 @@ class Modules_CloudflarePro_EventListener implements EventListener
             $action = strtolower((string) $action);
 
             if (!$this->shouldHandle($objectType, $action)) {
+                return;
+            }
+
+            if ($this->importInProgress()) {
+                error_log('Cloudflare Pro autosync skipped while a Cloudflare import job is running.');
                 return;
             }
 
@@ -129,6 +135,20 @@ class Modules_CloudflarePro_EventListener implements EventListener
         return false !== strpos($action, 'delete') ||
             false !== strpos($action, 'remove') ||
             false !== strpos($action, 'removed');
+    }
+
+    private function importInProgress()
+    {
+        try {
+            return (new Modules_CloudflarePro_SyncJobRepository([
+                'id' => 'system',
+                'login' => 'system',
+            ]))->hasRunningImport();
+        } catch (Throwable $e) {
+            error_log('Cloudflare Pro import-state check failed: ' . $e->getMessage());
+
+            return false;
+        }
     }
 
     private function composeHostName($subdomainName, $domainName)

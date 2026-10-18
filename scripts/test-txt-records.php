@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../plib/library/CloudflarePro/DomainSyncService.php';
+require_once __DIR__ . '/../plib/library/CloudflarePro/PleskDnsService.php';
 
 $service = (new ReflectionClass('CloudflarePro_DomainSyncService'))->newInstanceWithoutConstructor();
 $method = new ReflectionMethod($service, 'cloudflareRecord');
@@ -79,6 +80,19 @@ $unquotedCloudflareRecord = $normalize->invoke($service, [
 ]);
 if ($recordsMatch->invoke($service, $longPayload, $unquotedCloudflareRecord)) {
     fwrite(STDERR, "An unquoted Cloudflare TXT value should trigger an update.\n");
+    exit(1);
+}
+
+$plesk = (new ReflectionClass('CloudflarePro_PleskDnsService'))->newInstanceWithoutConstructor();
+$pleskContent = new ReflectionMethod($plesk, 'content');
+$pleskContent->setAccessible(true);
+$importedTxt = $pleskContent->invoke($plesk, 'TXT', $expectedLongContent);
+if ($importedTxt !== $longContent) {
+    fwrite(STDERR, "quoted TXT character strings were not unquoted for Plesk.\n");
+    exit(1);
+}
+if ($pleskContent->invoke($plesk, 'TXT', 'plain-value') !== 'plain-value') {
+    fwrite(STDERR, "plain TXT content should remain unchanged for Plesk.\n");
     exit(1);
 }
 

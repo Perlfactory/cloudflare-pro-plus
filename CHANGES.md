@@ -4,6 +4,8 @@
 
 - Quote TXT record contents before sending them to the Cloudflare DNS API.
 - Preserve already quoted and multi-string TXT values without double quoting.
+- Remove Cloudflare TXT character-string quotes when importing records into Plesk.
+- Suppress autosync events while an import job is writing records to Plesk.
 
 ## 1.1.0
 

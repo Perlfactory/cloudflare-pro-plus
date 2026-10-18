@@ -806,6 +806,9 @@ class CloudflarePro_DomainSyncService
 
         if (!in_array($type, ['SRV', 'TLSA'], true) && isset($record['content'])) {
             $normalized['content'] = $this->normalizeContent($type, $record['content']);
+            if ('TXT' === $type) {
+                $normalized['txt_content_quoted'] = $this->isQuotedTxtContent(trim((string) $record['content']));
+            }
         }
         if (!in_array($type, ['SRV', 'TLSA'], true) && isset($record['priority'])) {
             $normalized['priority'] = (int) $record['priority'];
@@ -826,6 +829,10 @@ class CloudflarePro_DomainSyncService
             if ((isset($local[$field]) ? $local[$field] : null) != (isset($cloudflare[$field]) ? $cloudflare[$field] : null)) {
                 return false;
             }
+        }
+
+        if ('TXT' === strtoupper(isset($local['type']) ? $local['type'] : '') && empty($cloudflare['txt_content_quoted'])) {
+            return false;
         }
 
         if (isset($local['data']) || isset($cloudflare['data'])) {
@@ -907,17 +914,35 @@ class CloudflarePro_DomainSyncService
 
     private function quoteTxtContent($content)
     {
-        $content = trim((string) $content);
-        if ($this->isQuotedTxtContent($content)) {
-            return $content;
-        }
-
-        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $content) . '"';
+        return $this->normalizeTxtContent($content);
     }
 
     private function isQuotedTxtContent($content)
     {
         return 1 === preg_match('/^"(?:\\\\.|[^"\\\\])*"(?:\s+"(?:\\\\.|[^"\\\\])*")*$/', $content);
+    }
+
+    private function normalizeTxtContent($content)
+    {
+        $content = trim((string) $content);
+        if ($this->isQuotedTxtContent($content)) {
+            preg_match_all('/"((?:\\\\.|[^"\\\\])*)"/', $content, $matches);
+            $segments = isset($matches[1]) && $matches[1] ? $matches[1] : [''];
+        } else {
+            $segments = [str_replace(['\\', '"'], ['\\\\', '\\"'], $content)];
+        }
+
+        $chunks = [];
+        foreach ($segments as $segment) {
+            do {
+                $chunks[] = substr($segment, 0, 255);
+                $segment = substr($segment, 255);
+            } while ('' !== $segment);
+        }
+
+        return implode(' ', array_map(function ($chunk) {
+            return '"' . $chunk . '"';
+        }, $chunks));
     }
 
     private function normalizeRecordData($type, array $data)

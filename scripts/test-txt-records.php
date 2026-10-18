@@ -41,4 +41,45 @@ foreach ($cases as $description => $case) {
     }
 }
 
+$normalize = new ReflectionMethod($service, 'normalizeCloudflareRecord');
+$normalize->setAccessible(true);
+$recordsMatch = new ReflectionMethod($service, 'recordsMatch');
+$recordsMatch->setAccessible(true);
+
+$longContent = str_repeat('a', 300);
+$expectedLongContent = '"' . str_repeat('a', 255) . '" "' . str_repeat('a', 45) . '"';
+$longPayload = $method->invoke($service, [
+    'type' => 'TXT',
+    'name' => 'selector.example.com',
+    'content' => $longContent,
+]);
+if ($longPayload['content'] !== $expectedLongContent) {
+    fwrite(STDERR, "long TXT content was not split into 255-byte strings.\n");
+    exit(1);
+}
+
+$cloudflareRecord = $normalize->invoke($service, [
+    'id' => 'txt-1',
+    'type' => 'TXT',
+    'name' => 'selector.example.com',
+    'content' => $expectedLongContent,
+    'ttl' => 1,
+]);
+if (!$recordsMatch->invoke($service, $longPayload, $cloudflareRecord)) {
+    fwrite(STDERR, "Cloudflare's split TXT strings should match the local payload.\n");
+    exit(1);
+}
+
+$unquotedCloudflareRecord = $normalize->invoke($service, [
+    'id' => 'txt-1',
+    'type' => 'TXT',
+    'name' => 'selector.example.com',
+    'content' => $longContent,
+    'ttl' => 1,
+]);
+if ($recordsMatch->invoke($service, $longPayload, $unquotedCloudflareRecord)) {
+    fwrite(STDERR, "An unquoted Cloudflare TXT value should trigger an update.\n");
+    exit(1);
+}
+
 fwrite(STDOUT, "TXT record quoting tests passed.\n");

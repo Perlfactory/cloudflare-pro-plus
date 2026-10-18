@@ -6,6 +6,7 @@
 - Preserve already quoted and multi-string TXT values without double quoting.
 - Remove Cloudflare TXT character-string quotes when importing records into Plesk.
 - Suppress autosync events while an import job is writing records to Plesk.
+- Do not validate tokens for empty autosync sources or repeat validation on autosync retries.
 
 ## 1.1.0
 

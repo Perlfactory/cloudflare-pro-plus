@@ -45,7 +45,12 @@ class CloudflarePro_DomainSyncService
                 $lastError = null;
                 for ($attempt = 1; $attempt <= max(1, (int) $attempts); $attempt++) {
                     try {
-                        $result = $service->syncLinkIncremental($link['id'], $sourceDomainName, $hostName);
+                        $result = $service->syncLinkIncremental(
+                            $link['id'],
+                            $sourceDomainName,
+                            $hostName,
+                            1 === $attempt
+                        );
                         if (empty($result['empty_source'])) {
                             $results[] = $result;
                             break;
@@ -315,7 +320,7 @@ class CloudflarePro_DomainSyncService
         ];
     }
 
-    public function syncLinkIncremental($linkId, $sourceDomainName = null, $targetHostName = null)
+    public function syncLinkIncremental($linkId, $sourceDomainName = null, $targetHostName = null, $validateToken = true)
     {
         $link = $this->domains->find($linkId);
         $token = $this->tokens->secret($link['token_id']);
@@ -327,10 +332,6 @@ class CloudflarePro_DomainSyncService
                 'updated' => 0,
                 'skipped' => true,
             ];
-        }
-
-        if (!empty($settings['validate_token_before_sync'])) {
-            $this->cloudflare->verifyToken($token);
         }
 
         try {
@@ -349,6 +350,10 @@ class CloudflarePro_DomainSyncService
                     'updated' => 0,
                     'empty_source' => true,
                 ];
+            }
+
+            if ($validateToken && !empty($settings['validate_token_before_sync'])) {
+                $this->cloudflare->verifyToken($token);
             }
 
             $existing = [];

@@ -996,16 +996,11 @@ function RecordsApp({ proxyAction, syncAction, startSyncJobAction, processSyncJo
 
   const list = target ? createPortal(
     <>
-      <div className="paging r-paging-visible gc-record-paging">
-        <div className="paging-area">
-          <span className="paging-info">{`${records.length} items total`}</span>
-        </div>
-      </div>
       <List
         columns={columns}
         data={data}
         rowKey="key"
-        totalRows={sortedRecords.length}
+        totalRows={records.length}
         className="gc-record-list"
         selection={selection}
         onSelectionChange={setSelection}

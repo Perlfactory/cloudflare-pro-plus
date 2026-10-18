@@ -756,6 +756,9 @@ class CloudflarePro_DomainSyncService
             $payload['data'] = $record['data'];
         } else {
             $payload['content'] = isset($record['content']) ? $record['content'] : '';
+            if ('TXT' === $type) {
+                $payload['content'] = $this->quoteTxtContent($payload['content']);
+            }
         }
 
         if ('MX' === $type && isset($record['priority'])) {
@@ -895,8 +898,26 @@ class CloudflarePro_DomainSyncService
         if (in_array($type, ['CNAME', 'MX', 'PTR', 'SRV'], true)) {
             return strtolower(rtrim($content, '.'));
         }
+        if ('TXT' === $type) {
+            return $this->quoteTxtContent($content);
+        }
 
         return $content;
+    }
+
+    private function quoteTxtContent($content)
+    {
+        $content = trim((string) $content);
+        if ($this->isQuotedTxtContent($content)) {
+            return $content;
+        }
+
+        return '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $content) . '"';
+    }
+
+    private function isQuotedTxtContent($content)
+    {
+        return 1 === preg_match('/^"(?:\\\\.|[^"\\\\])*"(?:\s+"(?:\\\\.|[^"\\\\])*")*$/', $content);
     }
 
     private function normalizeRecordData($type, array $data)

@@ -23,7 +23,7 @@ It rebuilds the versioned package from `main` on every push and publishes it as 
 After publishing a versioned release:
 
 ```sh
-plesk bin extension --install-url https://github.com/Perlfactory/cloudflare-pro-plus/releases/download/v1.1.0/cloudflare-pro-1.1.0.zip
+plesk bin extension --install-url https://github.com/Perlfactory/cloudflare-pro-plus/releases/download/v1.1.1/cloudflare-pro-1.1.1.zip
 ```
 
 ## Build Package Locally
@@ -37,7 +37,7 @@ sh packaging/build.sh
 The script creates:
 
 ```text
-cloudflare-pro-1.1.0.zip
+cloudflare-pro-1.1.1.zip
 ```
 
 ## Install Local Package
@@ -45,7 +45,7 @@ cloudflare-pro-1.1.0.zip
 Install through Plesk CLI:
 
 ```sh
-plesk bin extension --install cloudflare-pro-1.1.0.zip
+plesk bin extension --install cloudflare-pro-1.1.1.zip
 ```
 
 Or install through Plesk UI:
@@ -53,7 +53,7 @@ Or install through Plesk UI:
 1. Open **Plesk Admin**.
 2. Go to **Extensions**.
 3. Click **Upload Extension**.
-4. Upload `cloudflare-pro-1.1.0.zip`.
+4. Upload `cloudflare-pro-1.1.1.zip`.
 5. Open **Cloudflare Pro** from the Plesk sidebar.
 
 ## Test Before Packaging
@@ -68,7 +68,7 @@ xmllint --noout meta.xml
 node -e "JSON.parse(require('fs').readFileSync('packaging/manifest.json', 'utf8'))"
 sh -n packaging/build.sh
 sh packaging/build.sh
-zip -T cloudflare-pro-1.1.0.zip
+zip -T cloudflare-pro-1.1.1.zip
 ```
 
 ## GitHub Runners

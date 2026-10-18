@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- Quote TXT record contents before sending them to the Cloudflare DNS API.
+- Preserve already quoted and multi-string TXT values without double quoting.
+
 ## 1.1.0
 
 - Discover and synchronize Plesk domain aliases as independent Cloudflare DNS zones.

@@ -1895,7 +1895,7 @@ function SettingsApp({ saveAction, initialSettings }) {
 
 function AboutApp({ info, logo }) {
   const target = document.getElementById('gc-about-panel');
-  const version = info.version || '1.1.0';
+  const version = info.version || '1.1.1';
   const highlights = [
     {
       icon: 'cloud',

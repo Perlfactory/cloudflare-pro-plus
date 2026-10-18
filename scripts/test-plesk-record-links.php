@@ -19,6 +19,11 @@ if (!class_exists('pm_Domain')) {
             return $this->id;
         }
 
+        public function getName()
+        {
+            return $this->name;
+        }
+
         public static function getByDomainId($id)
         {
             foreach (self::domains() as $domain) {
@@ -70,35 +75,41 @@ if (!class_exists('pm_DomainAlias')) {
         {
             return 1;
         }
+
+        public function getName()
+        {
+            return 'yourdom-9.de';
+        }
     }
 }
 
 require_once __DIR__ . '/../plib/library/CloudflarePro/DomainSyncService.php';
 
 $service = (new ReflectionClass('CloudflarePro_DomainSyncService'))->newInstanceWithoutConstructor();
-$method = new ReflectionMethod($service, 'pleskUrlForRecord');
+$method = new ReflectionMethod($service, 'pleskUrlForDomain');
 $method->setAccessible(true);
 
+$mainDomain = new pm_Domain(20, 'mydom-9.de');
+$subdomain = new pm_Domain(22, 'sub.mydom-9.de');
+$alias = new pm_DomainAlias();
+$domains = [$mainDomain, $subdomain, $alias];
 $cases = [
     'main domain' => [
-        'link' => ['domain_id' => '20', 'domain_name' => 'mydom-9.de'],
-        'record' => 'mydom-9.de',
+        'domain' => $mainDomain,
         'expected' => '/admin/subscription/login/id/20?pageUrl=/smb/web/overview/id/20/type/domain',
     ],
     'subdomain' => [
-        'link' => ['domain_id' => '20', 'domain_name' => 'mydom-9.de'],
-        'record' => 'sub.mydom-9.de',
+        'domain' => $subdomain,
         'expected' => '/admin/subscription/login/id/20?pageUrl=/smb/web/overview/id/22/type/domain',
     ],
     'domain alias' => [
-        'link' => ['domain_id' => 'alias:1', 'domain_name' => 'yourdom-9.de'],
-        'record' => 'yourdom-9.de',
+        'domain' => $alias,
         'expected' => '/admin/subscription/login/id/20?pageUrl=/smb/web/overview/id/1/alias',
     ],
 ];
 
 foreach ($cases as $description => $case) {
-    $actual = $method->invoke($service, $case['link'], $case['record']);
+    $actual = $method->invoke($service, $case['domain'], $domains);
     if ($actual !== $case['expected']) {
         fwrite(STDERR, sprintf(
             "%s failed: expected %s, got %s\n",
@@ -110,4 +121,4 @@ foreach ($cases as $description => $case) {
     }
 }
 
-fwrite(STDOUT, "Plesk record link tests passed.\n");
+fwrite(STDOUT, "Plesk domain link tests passed.\n");

@@ -8,7 +8,7 @@
 - Suppress autosync events while an import job is writing records to Plesk.
 - Do not validate tokens for empty autosync sources or repeat validation on autosync retries.
 - Remember the records-page Items per page selection and show the total record count.
-- Link DNS record names to their Plesk domain, subdomain, or alias page.
+- Link domains in the Domains list to their Plesk domain, subdomain, or alias page.
 
 ## 1.1.0
 

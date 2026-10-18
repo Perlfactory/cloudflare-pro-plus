@@ -149,12 +149,37 @@ class CloudflarePro_DomainSyncService
             }
         });
 
-        return $this->domains->all();
+        $domainObjects = array_values($pleskDomains);
+        $urls = [];
+        foreach ($domainObjects as $domain) {
+            $urls[$this->domainIdentifier($domain)] = $this->pleskUrlForDomain($domain, $domainObjects);
+        }
+
+        $stored = $this->domains->all();
+        foreach ($stored as &$link) {
+            $link['plesk_url'] = isset($urls[$link['domain_id']]) ? $urls[$link['domain_id']] : '';
+        }
+        unset($link);
+
+        return $stored;
     }
 
     public function storedDomains()
     {
-        return $this->domains->all();
+        $stored = $this->domains->all();
+        $pleskDomains = $this->accessibleDomainMap();
+        $domainObjects = array_values($pleskDomains);
+        $urls = [];
+        foreach ($domainObjects as $domain) {
+            $urls[$this->domainIdentifier($domain)] = $this->pleskUrlForDomain($domain, $domainObjects);
+        }
+
+        foreach ($stored as &$link) {
+            $link['plesk_url'] = isset($urls[$link['domain_id']]) ? $urls[$link['domain_id']] : '';
+        }
+        unset($link);
+
+        return $stored;
     }
 
     public function syncLink($linkId)
@@ -459,11 +484,6 @@ class CloudflarePro_DomainSyncService
 
             return strcmp($left['name'], $right['name']);
         });
-
-        foreach ($rows as &$row) {
-            $row['plesk_url'] = $this->pleskUrlForRecord($link, $row['name']);
-        }
-        unset($row);
 
         return [
             'domain' => $link,
@@ -854,42 +874,45 @@ class CloudflarePro_DomainSyncService
         return true;
     }
 
-    private function pleskUrlForRecord(array $link, $recordName)
+    private function pleskUrlForDomain($domain, array $domains)
     {
-        if (!class_exists('pm_Domain')) {
+        if (!class_exists('pm_Domain') || !is_object($domain)) {
             return '';
         }
 
         try {
-            $linkDomainId = (string) (isset($link['domain_id']) ? $link['domain_id'] : '');
-            $isAlias = 0 === strpos($linkDomainId, 'alias:');
-            $mainDomain = null;
-            $targetId = null;
+            $targetId = method_exists($domain, 'getId') ? (int) $domain->getId() : 0;
+            $targetName = method_exists($domain, 'getName')
+                ? strtolower(rtrim((string) $domain->getName(), '.'))
+                : '';
+            $mainDomain = $domain;
             $targetPath = 'type/domain';
 
-            if ($isAlias && class_exists('pm_DomainAlias') && method_exists('pm_DomainAlias', 'getByDomainAliasId')) {
-                $aliasId = (int) substr($linkDomainId, strlen('alias:'));
-                $alias = pm_DomainAlias::getByDomainAliasId($aliasId);
-                $mainDomain = $alias->getDomain();
-                $targetId = $alias->getId();
+            if (is_a($domain, 'pm_DomainAlias') && method_exists($domain, 'getDomain')) {
+                $mainDomain = $domain->getDomain();
                 $targetPath = 'alias';
-            } else {
-                $mainDomain = pm_Domain::getByDomainId((int) $linkDomainId);
-                $targetDomainName = strtolower(rtrim((string) $recordName, '.'));
-                if ('' === $targetDomainName || '@' === $targetDomainName) {
-                    $targetDomainName = strtolower(rtrim((string) $link['domain_name'], '.'));
-                }
+            } elseif ('' !== $targetName) {
+                $mainName = '';
+                foreach ($domains as $candidate) {
+                    if (!is_object($candidate) || is_a($candidate, 'pm_DomainAlias') ||
+                        !method_exists($candidate, 'getName')) {
+                        continue;
+                    }
 
-                try {
-                    $targetDomain = pm_Domain::getByName($targetDomainName);
-                    $targetId = $targetDomain->getId();
-                } catch (Throwable $ignored) {
-                    $targetId = $mainDomain->getId();
+                    $candidateName = strtolower(rtrim((string) $candidate->getName(), '.'));
+                    if ($candidateName === $targetName ||
+                        substr($targetName, -strlen('.' . $candidateName)) !== '.' . $candidateName) {
+                        continue;
+                    }
+
+                    if (strlen($candidateName) > strlen($mainName)) {
+                        $mainName = $candidateName;
+                        $mainDomain = $candidate;
+                    }
                 }
             }
 
-            $mainId = $mainDomain && method_exists($mainDomain, 'getId') ? (int) $mainDomain->getId() : 0;
-            $targetId = (int) $targetId;
+            $mainId = method_exists($mainDomain, 'getId') ? (int) $mainDomain->getId() : 0;
             if ($mainId <= 0 || $targetId <= 0) {
                 return '';
             }

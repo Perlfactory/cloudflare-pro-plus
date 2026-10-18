@@ -890,7 +890,7 @@ class CloudflarePro_DomainSyncService
 
             if (is_a($domain, 'pm_DomainAlias') && method_exists($domain, 'getDomain')) {
                 $mainDomain = $domain->getDomain();
-                $targetPath = 'alias';
+                $targetPath = 'type/alias';
             } elseif ('' !== $targetName) {
                 $mainName = '';
                 foreach ($domains as $candidate) {

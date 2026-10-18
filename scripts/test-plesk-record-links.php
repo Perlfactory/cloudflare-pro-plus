@@ -104,7 +104,7 @@ $cases = [
     ],
     'domain alias' => [
         'domain' => $alias,
-        'expected' => '/admin/subscription/login/id/20?pageUrl=/smb/web/overview/id/1/alias',
+        'expected' => '/admin/subscription/login/id/20?pageUrl=/smb/web/overview/id/1/type/alias',
     ],
 ];
 
